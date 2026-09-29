@@ -78,6 +78,9 @@ public:
 	 */
 	void DebugGiveLoadedMagazine(FName MagId, int32 Rounds);
 
+	/** Dev/test only: ask the server for one item by id (same -AftermathAllowDebug gate). */
+	void DebugGiveItem(FName ItemId);
+
 	/** Server: validate reach and use Target. Public so tests and the GameMode can drive it. */
 	bool ServerTryInteractWith(AActor* Target);
 
@@ -131,6 +134,9 @@ protected:
 
 	UFUNCTION(Server, Reliable)
 	void ServerDebugGiveMagazine(FName MagId, int32 Rounds);
+
+	UFUNCTION(Server, Reliable)
+	void ServerDebugGiveItem(FName ItemId);
 
 	/** Stats and ailments. Simulated on the server, replicated to the owner only. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Survival")

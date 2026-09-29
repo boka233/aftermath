@@ -43,10 +43,10 @@ trap cleanup EXIT
 
 start_server() {
 	if [ "$MODE" = "editor" ]; then
-		"$EDITOR_BIN" "$PROJECT_W" -server -log -unattended -nosplash -nullrhi -port=$PORT \
+		"$EDITOR_BIN" "$PROJECT_W" -server -log -unattended -nosplash -nullrhi -port=$PORT -AftermathNoInfected \
 			-abslog="$(cygpath -w "$SERVER_LOG")" >/dev/null 2>&1 &
 	else
-		"$ROOT/Packaged/WindowsServer/AftermathServer.exe" -log -unattended -port=$PORT \
+		"$ROOT/Packaged/WindowsServer/AftermathServer.exe" -log -unattended -port=$PORT -AftermathNoInfected \
 			-abslog="$(cygpath -w "$SERVER_LOG")" >/dev/null 2>&1 &
 	fi
 	SERVER_PID=$!

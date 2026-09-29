@@ -29,12 +29,6 @@ namespace
 		}
 	}
 
-	const FAftermathItemDef* DefOf(FName Id)
-	{
-		const UAftermathItemDatabase* DB = UAftermathItemDatabase::Get();
-		return DB ? DB->Find(Id) : nullptr;
-	}
-
 	/** Colour per category so items read at a glance in the grey-box UI. */
 	FLinearColor CategoryColor(FName Category)
 	{

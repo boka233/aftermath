@@ -8,12 +8,6 @@
 
 namespace
 {
-	const FAftermathItemDef* DefOf(FName Id)
-	{
-		const UAftermathItemDatabase* DB = UAftermathItemDatabase::Get();
-		return DB ? DB->Find(Id) : nullptr;
-	}
-
 	EAftermathActionResult Log(const AAftermathCharacter& Who, const TCHAR* Op, FName Item, EAftermathActionResult R)
 	{
 		UE_LOG(LogAftermath, Display, TEXT("[Aftermath] ItemAction op=%s item=%s result=%s by=%s"),

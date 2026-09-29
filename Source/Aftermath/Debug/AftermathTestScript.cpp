@@ -9,6 +9,7 @@
 #include "Items/AftermathInventoryComponent.h"
 #include "Misc/CommandLine.h"
 #include "Combat/AftermathCombatComponent.h"
+#include "Infected/AftermathInfected.h"
 #include "Player/AftermathPlayerController.h"
 #include "Survival/AftermathSurvivalComponent.h"
 #include "UnrealClient.h"
@@ -330,6 +331,81 @@ void UAftermathTestScript::BuildScript()
 		} });
 		Steps.Add({ 26.f, TEXT("done"), [](AAftermathCharacter&) {} });
 		}
+		else if (ScriptName == TEXT("survivor"))
+		{
+		// Stage 4. Spawned at StartG, facing the lane civilian 20 m away (it faces away from us).
+		// Fires one shot into the ground to make noise -> it turns and chases -> it swings at us while we
+		// stand still -> we shoot it until it dies. Everything through the real client input + RPCs.
+		auto NearestInfected = [this](AAftermathCharacter& C) -> AAftermathInfected*
+		{
+			AAftermathInfected* Best = nullptr;
+			float BestD = TNumericLimits<float>::Max();
+			for (TActorIterator<AAftermathInfected> It(GetWorld()); It; ++It)
+			{
+				const float D = FVector::Dist(It->GetActorLocation(), C.GetActorLocation());
+				if (!It->IsDead() && D < BestD) { Best = *It; BestD = D; }
+			}
+			return Best;
+		};
+		Steps.Add({ 2.f, TEXT("arm"), [Log](AAftermathCharacter& C)
+		{
+			// Pistol + two loaded magazines through the dev-only RPC (server started with -AftermathAllowDebug).
+			C.DebugGiveLoadedMagazine(TEXT("Mag9mm"), 15);
+			C.DebugGiveLoadedMagazine(TEXT("Mag9mm"), 15);
+			C.DebugGiveItem(TEXT("Pistol"));
+			Log(TEXT("step=arm"));
+		} });
+		Steps.Add({ 3.f, TEXT("load"), [Log](AAftermathCharacter& C)
+		{
+			const UAftermathInventoryComponent* Inv = C.GetInventory();
+			const int32 Gun = Inv->FindFirstUid(TEXT("Pistol"));
+			const int32 Mag = Inv->FindFirstUid(TEXT("Mag9mm"));
+			Log(FString::Printf(TEXT("step=load gun=%d mag=%d"), Gun, Mag));
+			C.RequestCombineItems(Mag, Gun);
+		} });
+		// Make noise: one shot at the ground in front of us.
+		Steps.Add({ 5.f, TEXT("noise_shot"), [this, Log](AAftermathCharacter& C)
+		{
+			FaceTowards(C, C.GetActorLocation() + C.GetActorForwardVector() * 300.f - FVector(0, 0, 90.f));
+			Log(FString::Printf(TEXT("step=noise_shot rounds=%d"), C.GetCombat()->GetHeldRounds()));
+			C.GetCombat()->SetTriggerHeld(true);
+		} });
+		Steps.Add({ 5.1f, TEXT("release"), [](AAftermathCharacter& C) { C.GetCombat()->SetTriggerHeld(false); } });
+		// Keep looking at it while it comes (no shooting yet, so it reaches us and swings).
+		for (int32 i = 0; i < 16; ++i)
+		{
+			Steps.Add({ 5.5f + i * 0.5f, TEXT("watch"), [this, NearestInfected](AAftermathCharacter& C)
+			{
+				if (AAftermathInfected* I = NearestInfected(C))
+				{
+					FaceTowards(C, I->GetActorLocation() + FVector(0, 0, 60.f));
+				}
+			} });
+		}
+		Steps.Add({ 13.5f, TEXT("screenshot"), [](AAftermathCharacter&)
+		{
+			FScreenshotRequest::RequestScreenshot(TEXT("stage4_infected"), true, false);
+		} });
+		// Shoot it: head height, one shot every 0.5 s until it's down (bounded).
+		for (int32 i = 0; i < 12; ++i)
+		{
+			const float At = 14.f + i * 0.5f;
+			Steps.Add({ At, TEXT("shoot_infected"), [this, NearestInfected, Log](AAftermathCharacter& C)
+			{
+				AAftermathInfected* I = NearestInfected(C);
+				if (!I)
+				{
+					return;
+				}
+				FaceTowards(C, I->GetActorLocation() + FVector(0, 0, 45.f));
+				Log(FString::Printf(TEXT("step=shoot_infected dist=%.0f rounds=%d"),
+					FVector::Dist2D(I->GetActorLocation(), C.GetActorLocation()), C.GetCombat()->GetHeldRounds()));
+				C.GetCombat()->SetTriggerHeld(true);
+			} });
+			Steps.Add({ At + 0.1f, TEXT("release"), [](AAftermathCharacter& C) { C.GetCombat()->SetTriggerHeld(false); } });
+		}
+		Steps.Add({ 22.f, TEXT("done"), [](AAftermathCharacter&) {} });
+		}
 		else if (ScriptName == TEXT("observer"))
 	{
 		// Spawned at StartC (start of the vault course, 60cm wall 3.85m ahead).
@@ -380,6 +456,23 @@ void UAftermathTestScript::LogObservations(AAftermathCharacter& Self)
 	{
 		Msg += FString::Printf(TEXT(" rounds=%d hitmarker_age=%.1f dmg_indicator_age=%.1f tracers=%d"),
 			Combat->GetHeldRounds(), Combat->GetHitMarkerAge(), Combat->GetDamageIndicatorAge(), Combat->GetTracers().Num());
+	}
+	// Nearest infected as replicated to this client (position, replicated state, dead flag).
+	{
+		const AAftermathInfected* Near = nullptr;
+		float NearD = TNumericLimits<float>::Max();
+		int32 Seen = 0;
+		for (TActorIterator<AAftermathInfected> It(GetWorld()); It; ++It)
+		{
+			++Seen;
+			const float D = FVector::Dist2D(It->GetActorLocation(), Self.GetActorLocation());
+			if (D < NearD) { NearD = D; Near = *It; }
+		}
+		if (Near)
+		{
+			Msg += FString::Printf(TEXT(" infected_seen=%d inf_dist=%.0f inf_state=%s inf_dead=%d"),
+				Seen, NearD, AftermathInfectedMath::StateToString(Near->GetState()), Near->IsDead() ? 1 : 0);
+		}
 	}
 	// Shot effects seen from the other player's gun (tracers fade in 0.25 s, so count them).
 	if (const AAftermathCharacter* Other = FindOtherSurvivor(Self))

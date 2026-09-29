@@ -26,6 +26,13 @@ public:
 	/** Null if the id is unknown. */
 	const FAftermathItemDef* Find(FName Id) const;
 
+	/** Shorthand for Get()->Find(Id), null-safe. */
+	static const FAftermathItemDef* FindDef(FName Id)
+	{
+		const UAftermathItemDatabase* DB = Get();
+		return DB ? DB->Find(Id) : nullptr;
+	}
+
 	int32 Num() const { return Defs.Num(); }
 	const TArray<FName>& GetAllIds() const { return Ids; }
 
@@ -42,3 +49,12 @@ private:
 	TMap<FName, FAftermathItemDef> Defs;
 	TArray<FName> Ids;
 };
+
+/**
+ * Item definition by id, or null. One shared copy: per-file anonymous-namespace helpers with the same
+ * name collide when unity builds merge those files into one translation unit.
+ */
+inline const FAftermathItemDef* DefOf(FName Id)
+{
+	return UAftermathItemDatabase::FindDef(Id);
+}

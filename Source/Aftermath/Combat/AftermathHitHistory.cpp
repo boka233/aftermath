@@ -1,8 +1,10 @@
 #include "Combat/AftermathHitHistory.h"
 
+#include "Combat/AftermathCombatComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Infected/AftermathInfected.h"
 #include "Movement/AftermathMovementComponent.h"
 #include "Player/AftermathCharacter.h"
 
@@ -102,10 +104,15 @@ void UAftermathHitHistory::RecordAll()
 		return;
 	}
 	const double T = Now();
-	for (TActorIterator<AAftermathCharacter> It(World); It; ++It)
+	for (TActorIterator<ACharacter> It(World); It; ++It)
 	{
-		AAftermathCharacter* C = *It;
-		if (!IsValid(C) || C->IsDead())
+		ACharacter* C = *It;
+		if (!IsValid(C) || !AftermathCombat::IsHittable(C))
+		{
+			continue;
+		}
+		// Sleeping infected are far from everyone: nobody can be shooting at them with a rewind.
+		if (const AAftermathInfected* I = Cast<AAftermathInfected>(C); I && I->IsSleeping())
 		{
 			continue;
 		}
@@ -115,7 +122,8 @@ void UAftermathHitHistory::RecordAll()
 		S.Location = C->GetActorLocation();
 		S.HalfHeight = Capsule->GetScaledCapsuleHalfHeight();
 		S.Radius = Capsule->GetScaledCapsuleRadius();
-		S.bProne = C->GetStance() == EAftermathStance::Prone;
+		const AAftermathCharacter* Survivor = Cast<AAftermathCharacter>(C);
+		S.bProne = Survivor && Survivor->GetStance() == EAftermathStance::Prone;
 		Buffers.FindOrAdd(C).Record(S);
 	}
 	// Forget destroyed characters.
@@ -128,9 +136,9 @@ void UAftermathHitHistory::RecordAll()
 	}
 }
 
-bool UAftermathHitHistory::GetPoseAt(const AAftermathCharacter* Who, double Time, FAftermathPoseSample& Out) const
+bool UAftermathHitHistory::GetPoseAt(const AActor* Who, double Time, FAftermathPoseSample& Out) const
 {
-	const FAftermathPoseBuffer* B = Buffers.Find(Who);
+	const FAftermathPoseBuffer* B = Buffers.Find(TWeakObjectPtr<AActor>(const_cast<AActor*>(Who)));
 	return B && B->Sample(Time, Out);
 }
 

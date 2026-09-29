@@ -4,12 +4,6 @@
 
 namespace
 {
-	const FAftermathItemDef* DefOf(FName Id)
-	{
-		const UAftermathItemDatabase* DB = UAftermathItemDatabase::Get();
-		return DB ? DB->Find(Id) : nullptr;
-	}
-
 	bool RectsOverlap(int32 AX, int32 AY, const FAftermathGridSize& A, int32 BX, int32 BY, const FAftermathGridSize& B)
 	{
 		return AX < BX + B.X && BX < AX + A.X && AY < BY + B.Y && BY < AY + A.Y;

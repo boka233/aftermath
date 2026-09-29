@@ -22,8 +22,8 @@
 | 1 联机原型 | 灰盒地图、跑/走/蹲/趴、翻越、开门、捡东西，全部服务器判定 | ✅ 完成 |
 | 2 生存 + 背包 | 生存数值和伤病、格子背包、装备栏、附近栏、物品组合 | ✅ 完成 |
 | 3 战斗 PvP | 枪械弹道、弹匣、后坐力、延迟补偿命中、近战、部位伤害、护甲、死亡掉落 | ✅ 完成 |
-| 4 感染者 | 服务器 AI：视觉、听觉、叫同伴；按距离降低更新频率 | ⬜ 下一个 |
-| 5 世界 | 10×10 公里地形、World Partition、城镇和军事区、物资刷新、昼夜天气 | ⬜ |
+| 4 感染者 | 服务器 AI：视觉、听觉、叫同伴；按距离降低更新频率 | ✅ 完成 |
+| 5 世界 | 10×10 公里地形、World Partition、城镇和军事区、物资刷新、昼夜天气 | ⬜ 下一个（先出方案） |
 | 6 持久化 | SQLite 存档、断线保护、永久死亡、服务器配置、登录流程 | ⬜ |
 | 7 写实化 | 换正式素材、MetaHuman、动画、音效、Lumen 调光、性能、压力测试 | ⬜ |
 | 8 上线准备 | Linux 服务器、云端部署、反作弊（EAC）、服务器列表 | ⬜ |
@@ -57,6 +57,16 @@
 - 客户端：左键开火/近战、右键瞄准、R 换弹、弹药显示、弹道线、命中提示、受伤方向提示
 - 测试：自动化 48 个全过；联机 `smoke_stage3.sh` 32/32（射击→护甲减伤→作弊被拒→换弹→击杀→重生）；`smoke_stage2.sh` 回归 44/44
 - 测试专用：`-AftermathAllowDebug` 启动的服务器才接受"给装满的弹匣"请求，Shipping 版直接编译掉
+
+阶段 4 完成情况：
+- 纯逻辑（`Infected/AftermathInfectedMath`）：视野锥 + 余光、姿态/移动/光线影响视距；听觉按距离衰减，隔墙减半，雨天减弱；状态机 闲逛→警觉→追击→攻击→找人→回去；平民/警察/士兵（血量、速度、头盔/防弹衣减伤）
+- 服务器角色 `AAftermathInfected`：没有 AIController，服务器直接驱动移动；沿 navmesh 寻路（服务器开局时运行时生成，门关着就挡住）；吼叫叫附近同伴；永远不会开门
+- 管理器 `UAftermathInfectedManager`：按离最近玩家的距离决定思考频率（30 m 内 10 次/秒，80 m 内 3 次/秒，200 m 内 1 次/秒，更远且闲着就休眠），噪音能叫醒休眠的；每 5 秒打一行 `InfectedStats`（帧率、耗时）
+- 战斗打通：子弹和近战能打感染者（有延迟补偿），感染者抓人走和玩家一样的护甲/伤口流程
+- 地图：navmesh 范围覆盖整张地图；东北角围墙院子里 5 个感染者（大门是一扇门，它们出不来，玩家开门就会冲出来）；StartG 测试通道 20 m 外 1 个平民
+- 测试：自动化 57 个全过（新增感染者纯逻辑 4 个 + 世界测试 5 个）；联机 `smoke_stage4.sh` 26/26（开枪→听见→追→打人→被打死）；150 感染者压力测试：156 个全部醒着、130 个同时追击，服务器稳定 30 帧，单帧平均 3 ms（上限 33 ms）；阶段 2/3 回归 44/44、32/32
+- 测试专用：`-AftermathNoInfected` 去掉地图里的感染者（阶段 1~3 测试用）；`-AftermathInfected=N` 多刷 N 个；`-AftermathAllowDebug -AftermathGodMode` 玩家不掉血（压力测试用）。都只在开发版有效
+- 修了一个老问题：出生点被人/感染者挡住时引擎会拒绝生成角色，玩家就一直没有身体。现在会挪到旁边的空位
 
 ### 阶段 4：感染者
 - 视觉（视野、光线、姿态）+ 听觉（噪音，隔墙衰减）
@@ -124,7 +134,7 @@ Engine\Build\BatchFiles\Build.bat AftermathEditor Win64 Development -Project=D:\
 Engine\Build\BatchFiles\RunUAT.bat BuildCookRun -project=D:\NAR\narprojects\game\Aftermath.uproject -noP4 -platform=Win64 -server -serverplatform=Win64 -client -clientconfig=Development -serverconfig=Development -build -cook -stage -pak -archive -archivedirectory=D:\NAR\narprojects\game\Packaged -unattended
 ```
 
-自动化测试（48 个）：
+自动化测试（57 个）：
 ```
 UnrealEditor-Cmd.exe Aftermath.uproject -ExecCmds="Automation RunTests Aftermath.; Quit" -unattended -nullrhi -testexit="Automation Test Queue Empty"
 ```
@@ -139,6 +149,16 @@ bash Tools/smoke_stage2.sh packaged
 bash Tools/smoke_stage3.sh packaged
 ```
 
+感染者联机测试（1 服务器 + 1 脚本客户端 StartG，26 项检查，端口 17777，含截图 `stage4_infected.png`）：
+```
+bash Tools/smoke_stage4.sh packaged
+```
+
+150 感染者压力测试（服务器要稳在 30 帧，端口 17777）：
+```
+bash Tools/perf_infected.sh packaged 150 45
+```
+
 重建测试地图：
 ```
 UnrealEditor.exe Aftermath.uproject -ExecutePythonScript=Tools/build_proto_map.py -unattended -nullrhi
@@ -149,9 +169,12 @@ UnrealEditor.exe Aftermath.uproject -ExecutePythonScript=Tools/build_proto_map.p
 ## 待处理
 
 - 磁盘：C 盘约剩 44GB，D 盘约剩 107GB，大地图和素材会继续占用
-- 代码还没有提交到 git
+- 代码在 GitHub `boka233/aftermath`，分支 `stage3-combat`（阶段 0~3）、`stage4-infected`（阶段 4），还没合并到 main
 - 还没有人亲手试玩过手感（跑动、镜头、翻越、背包操作）
-- 环境温度现在是固定值（偏凉），阶段 5 做昼夜天气时接上；感冒咳嗽的声音到阶段 4 感染者时才有作用
+- 环境温度现在是固定值（偏凉），阶段 5 做昼夜天气时接上；光线值（影响感染者视距）也先固定为白天
+- 感染者还是灰色圆柱（追击时变红、警觉时变黄），没有动画和声音；吼叫只在日志里，玩家听不到
+- 压力测试是 1 个玩家站在 150 个感染者中间的最坏情况；多个玩家分散在大地图上时每个感染者的开销更低，但还没测过 60 人
+- 编辑器模式跑联机测试会有 Iris 的"模块加载太晚"警告（编辑器插件造成），打包版没有
 - 死亡后装备直接掉在地上，还没改成留在尸体上可搜刮（放到阶段 6 持久化一起做尸体）
 - 还没人亲手试过枪械手感（后坐力、瞄准、弹道线）；近战蓄力重击只有逻辑，没专门联机测
 - 测试靶子是站着不动的，移动目标的延迟补偿只在自动化测试里验证过

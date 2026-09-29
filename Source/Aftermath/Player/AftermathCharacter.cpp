@@ -535,6 +535,31 @@ void AAftermathCharacter::DebugGiveLoadedMagazine(FName MagId, int32 Rounds)
 #endif
 }
 
+void AAftermathCharacter::DebugGiveItem(FName ItemId)
+{
+#if !UE_BUILD_SHIPPING
+	ServerDebugGiveItem(ItemId);
+#endif
+}
+
+void AAftermathCharacter::ServerDebugGiveItem_Implementation(FName ItemId)
+{
+#if !UE_BUILD_SHIPPING
+	if (!FParse::Param(FCommandLine::Get(), TEXT("AftermathAllowDebug")))
+	{
+		UE_LOG(LogAftermath, Warning, TEXT("[Aftermath] DebugRejected op=give_item by=%s (server not started with -AftermathAllowDebug)"), *GetName());
+		return;
+	}
+	const FAftermathItemDef* Def = UAftermathItemDatabase::FindDef(ItemId);
+	if (!Def || !Inventory)
+	{
+		return;
+	}
+	Inventory->AddItem(AftermathItems::MakeInstance(*Def));
+	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] DebugGive item=%s to=%s"), *ItemId.ToString(), *GetName());
+#endif
+}
+
 void AAftermathCharacter::ServerDebugGiveMagazine_Implementation(FName MagId, int32 Rounds)
 {
 #if !UE_BUILD_SHIPPING

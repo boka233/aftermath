@@ -46,6 +46,24 @@ void AAftermathGameMode::Logout(AController* Exiting)
 	Super::Logout(Exiting);
 }
 
+APawn* AAftermathGameMode::SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform)
+{
+	// The engine default refuses to spawn when something stands on the spawn point, which leaves the
+	// player with no body at all. Infected (or another player) camping a spawn must never do that:
+	// nudge the capsule to the nearest free spot instead, and only as a last resort spawn anyway.
+	FActorSpawnParameters SpawnInfo;
+	SpawnInfo.Instigator = GetInstigator();
+	SpawnInfo.ObjectFlags |= RF_Transient;
+	SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+	UClass* PawnClass = GetDefaultPawnClassForController(NewPlayer);
+	APawn* Pawn = GetWorld()->SpawnActor<APawn>(PawnClass, SpawnTransform, SpawnInfo);
+	if (!Pawn)
+	{
+		UE_LOG(LogAftermath, Error, TEXT("[Aftermath] SpawnFailed at=%s"), *SpawnTransform.GetLocation().ToCompactString());
+	}
+	return Pawn;
+}
+
 void AAftermathGameMode::RestartPlayer(AController* NewPlayer)
 {
 	Super::RestartPlayer(NewPlayer);

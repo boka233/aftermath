@@ -6,6 +6,7 @@
 #include "AftermathCombatComponent.generated.h"
 
 class AAftermathCharacter;
+class ACharacter;
 
 /** Why the server refused a shot (logged, and counted for anti-cheat tuning). */
 UENUM()
@@ -27,7 +28,8 @@ struct FAftermathShotOutcome
 	EAftermathShotResult Result = EAftermathShotResult::NoWeapon;
 	bool bHitCharacter = false;
 	bool bHitWorld = false;
-	TWeakObjectPtr<AAftermathCharacter> Victim;
+	/** Survivor or infected that was hit. */
+	TWeakObjectPtr<ACharacter> Victim;
 	EAftermathHitZone Zone = EAftermathHitZone::None;
 	float Damage = 0.f;
 	FVector ImpactPoint = FVector::ZeroVector;
@@ -71,6 +73,12 @@ struct FAftermathShotFx
  * The client never decides what it hit. Spread comes from a seed the client sends so both sides agree on
  * the cone offset, but the server re-derives and clamps the cone from its own weapon stats.
  */
+namespace AftermathCombat
+{
+	/** Alive survivor or alive infected: something a bullet or a swing can hurt. */
+	AFTERMATH_API bool IsHittable(const AActor* Actor);
+}
+
 UCLASS(ClassGroup = (Aftermath), meta = (BlueprintSpawnableComponent))
 class AFTERMATH_API UAftermathCombatComponent : public UActorComponent
 {
@@ -122,6 +130,14 @@ public:
 	/** Test hook: the last server outcome. */
 	const FAftermathShotOutcome& GetLastOutcome() const { return LastOutcome; }
 
+	/**
+	 * Server: a hit lands on a survivor (armor, damage, wounds, damage-direction notify). Used by other
+	 * survivors' weapons and by infected swings. Instigator is logged as the killer.
+	 * Returns the notify (the attacking survivor forwards it as a hit marker).
+	 */
+	static FAftermathHitNotify ApplyHitToSurvivor(AAftermathCharacter& Victim, EAftermathHitZone Zone, float Damage, float Blood,
+		float CutChance, const FVector& From, const FVector& Impact, const AActor* Instigator);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -151,7 +167,8 @@ private:
 	AAftermathCharacter* GetSurvivor() const;
 	void ClientTryFire();
 	void ClientTryMelee();
-	void ApplyHit(AAftermathCharacter& Victim, EAftermathHitZone Zone, float Damage, float Blood, float CutChance,
+	/** Our hit landed on a survivor or an infected: apply it and show our hit marker. */
+	void ApplyHit(ACharacter& Victim, EAftermathHitZone Zone, float Damage, float Blood, float CutChance,
 		const FVector& From, const FVector& Impact);
 	void FinishReload();
 

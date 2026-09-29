@@ -36,12 +36,6 @@ namespace
 		}
 	}
 
-	const FAftermathItemDef* DefOf(FName Id)
-	{
-		const UAftermathItemDatabase* DB = UAftermathItemDatabase::Get();
-		return DB ? DB->Find(Id) : nullptr;
-	}
-
 	/** Ground items listed in the "nearby" column. Slightly less than the server's pickup reach. */
 	constexpr float NearbyRadius = 250.f;
 }

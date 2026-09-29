@@ -36,10 +36,10 @@ trap cleanup EXIT
 # -AftermathAllowDebug lets the test script request loaded magazines (dev-only RPC, compiled out of Shipping).
 start_server() {
 	if [ "$MODE" = "editor" ]; then
-		"$EDITOR_BIN" "$PROJECT_W" -server -log -unattended -nosplash -nullrhi -port=$PORT -AftermathAllowDebug \
+		"$EDITOR_BIN" "$PROJECT_W" -server -log -unattended -nosplash -nullrhi -port=$PORT -AftermathNoInfected -AftermathAllowDebug \
 			-abslog="$(cygpath -w "$SERVER_LOG")" >/dev/null 2>&1 &
 	else
-		"$ROOT/Packaged/WindowsServer/AftermathServer.exe" -log -unattended -port=$PORT -AftermathAllowDebug \
+		"$ROOT/Packaged/WindowsServer/AftermathServer.exe" -log -unattended -port=$PORT -AftermathNoInfected -AftermathAllowDebug \
 			-abslog="$(cygpath -w "$SERVER_LOG")" >/dev/null 2>&1 &
 	fi
 	SERVER_PID=$!

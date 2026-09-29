@@ -30,6 +30,7 @@ grid_mat = unreal.load_asset(GRID_MAT)
 
 door_cls = unreal.load_class(None, "/Script/Aftermath.AftermathDoor")
 pickup_cls = unreal.load_class(None, "/Script/Aftermath.AftermathPickup")
+infected_cls = unreal.load_class(None, "/Script/Aftermath.AftermathInfected")
 
 
 def log(msg):
@@ -79,6 +80,15 @@ def house(name, origin, width=800.0, depth=600.0, height=300.0, wall=20.0, door_
     door.set_folder_path(folder)
 
     return (ox, oy, oz)
+
+
+def infected(label, loc, type_index, yaw):
+    """Infected placed in the map (0 civilian, 1 police, 2 soldier)."""
+    a = actor_subsys.spawn_actor_from_class(infected_cls, unreal.Vector(*loc), unreal.Rotator(0, 0, yaw))
+    a.set_editor_property("TypeIndex", type_index)
+    a.set_actor_label(label)
+    a.set_folder_path("Infected")
+    return a
 
 
 def pickup(label, loc, item_id, count=1):
@@ -176,6 +186,45 @@ def build():
     pickup("Loot_Range_Vest", (-950.0, 2950.0, 15.0), "PlateCarrier")
     pickup("Loot_Range_Axe", (-950.0, 3150.0, 15.0), "Axe")
     pickup("Loot_Range_Bat", (-950.0, 2850.0, 15.0), "Bat")
+
+    # Stage 4: navmesh bounds over the whole ground (the server builds the navmesh at load; closed doors
+    # cut it, open doors don't), and an infected yard in the NE quadrant, north of the houses.
+    nav = actor_subsys.spawn_actor_from_class(unreal.NavMeshBoundsVolume, unreal.Vector(0.0, 0.0, 200.0))
+    # Default brush is a 200 uu cube; scale it to 60 x 60 x 6 m.
+    nav.set_actor_scale3d(unreal.Vector(30.0, 30.0, 3.0))
+    nav.set_actor_label("NavBounds")
+    nav.set_folder_path("Navigation")
+    origin, extent = nav.get_actor_bounds(False)
+    log("NavBounds extent=%s" % extent)
+    if extent.x < 2900.0 or extent.y < 2900.0:
+        raise RuntimeError("NavMeshBoundsVolume has no usable brush (extent %s)" % extent)
+    # Infected compound: 3 m walls around X 1800..2950 / Y -2950..2950, one gate (a door) in the south
+    # wall facing the houses. Infected can't open doors, so they stay inside until a player opens the gate;
+    # the walls also keep them from seeing the rest of the map.
+    cx0, cx1, cy = 1800.0, 2950.0, 2950.0
+    ch, gate_w = 300.0, 100.0
+    box("Compound_N", (cx1, 0.0, ch / 2.0), (20.0, cy * 2.0, ch), "Compound")
+    box("Compound_E", ((cx0 + cx1) / 2.0, cy, ch / 2.0), (cx1 - cx0, 20.0, ch), "Compound")
+    box("Compound_W", ((cx0 + cx1) / 2.0, -cy, ch / 2.0), (cx1 - cx0, 20.0, ch), "Compound")
+    seg = cy - gate_w / 2.0
+    box("Compound_S1", (cx0, -gate_w / 2.0 - seg / 2.0, ch / 2.0), (20.0, seg, ch), "Compound")
+    box("Compound_S2", (cx0, gate_w / 2.0 + seg / 2.0, ch / 2.0), (20.0, seg, ch), "Compound")
+    box("Compound_Lintel", (cx0, 0.0, 220.0 + (ch - 220.0) / 2.0), (20.0, gate_w, ch - 220.0), "Compound")
+    gate = actor_subsys.spawn_actor_from_class(door_cls, unreal.Vector(cx0, -gate_w / 2.0, 0.0), unreal.Rotator(0, 0, 90))
+    gate.set_actor_label("Compound_Gate")
+    gate.set_folder_path("Compound")
+
+    # Civilians mill around inside; one police and one soldier among them.
+    infected("Inf_Civ_1", (2300.0, -1800.0, 100.0), 0, 180.0)
+    infected("Inf_Civ_2", (2500.0, -600.0, 100.0), 0, 200.0)
+    infected("Inf_Civ_3", (2400.0, 600.0, 100.0), 0, 160.0)
+    infected("Inf_Police", (2600.0, 1600.0, 100.0), 1, 180.0)
+    infected("Inf_Soldier", (2700.0, 2400.0, 100.0), 2, 180.0)
+
+    # Stage 4 test lane: a single civilian 20 m from StartG, facing away from it (yaw 180 = -X) so it only
+    # reacts once the player makes noise.
+    infected("Inf_Lane", (-2000.0, -2600.0, 100.0), 0, 180.0)
+    player_start("StartG", (0.0, -2600.0, 100.0), 180.0)       # infected lane: faces the lane civilian
 
     # Spawns (capsule half height 90 + a bit).
     player_start("StartE", (-2000.0, 3000.0, 100.0), 0.0)     # range: shooter end, facing +X

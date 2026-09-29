@@ -20,6 +20,7 @@ public:
 	virtual void PostLogin(APlayerController* NewPlayer) override;
 	virtual void Logout(AController* Exiting) override;
 	virtual void RestartPlayer(AController* NewPlayer) override;
+	virtual APawn* SpawnDefaultPawnAtTransform_Implementation(AController* NewPlayer, const FTransform& SpawnTransform) override;
 
 	/** Called by a survivor's death: schedule a fresh spawn. The corpse stays in the world. */
 	void OnSurvivorDied(class AAftermathCharacter* Victim);

@@ -10,6 +10,7 @@
 #include "GameFramework/GameStateBase.h"
 #include "GameFramework/PlayerController.h"
 #include "GameFramework/PlayerState.h"
+#include "Infected/AftermathInfected.h"
 #include "Items/AftermathInventoryComponent.h"
 #include "Items/AftermathItemActions.h"
 #include "Items/AftermathItemDatabase.h"
@@ -20,12 +21,6 @@
 
 namespace
 {
-	const FAftermathItemDef* DefOf(FName Id)
-	{
-		const UAftermathItemDatabase* DB = UAftermathItemDatabase::Get();
-		return DB ? DB->Find(Id) : nullptr;
-	}
-
 	/** Bullet flight step for server tracing (seconds). */
 	constexpr float BulletStep = 0.02f;
 
@@ -384,13 +379,13 @@ FAftermathShotOutcome UAftermathCombatComponent::ServerHandleFire(const FVector&
 	FCollisionQueryParams Params(SCENE_QUERY_STAT(AftermathBullet), true, Shooter);
 	const FCollisionObjectQueryParams WorldObjects = BulletWorldObjects();
 
-	// Candidate victims: everyone else alive, with their pose at the rewind time.
-	struct FCandidate { AAftermathCharacter* C; FAftermathPoseSample Pose; };
+	// Candidate victims: everyone else alive (survivors and infected), with their pose at the rewind time.
+	struct FCandidate { ACharacter* C; FAftermathPoseSample Pose; };
 	TArray<FCandidate> Candidates;
-	for (TActorIterator<AAftermathCharacter> It(World); It; ++It)
+	for (TActorIterator<ACharacter> It(World); It; ++It)
 	{
-		AAftermathCharacter* C = *It;
-		if (C == Shooter || C->IsDead())
+		ACharacter* C = *It;
+		if (C == Shooter || !AftermathCombat::IsHittable(C))
 		{
 			continue;
 		}
@@ -400,7 +395,8 @@ FAftermathShotOutcome UAftermathCombatComponent::ServerHandleFire(const FVector&
 			Pose.Location = C->GetActorLocation();
 			Pose.HalfHeight = C->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 			Pose.Radius = C->GetCapsuleComponent()->GetScaledCapsuleRadius();
-			Pose.bProne = C->GetStance() == EAftermathStance::Prone;
+			const AAftermathCharacter* S = Cast<AAftermathCharacter>(C);
+			Pose.bProne = S && S->GetStance() == EAftermathStance::Prone;
 		}
 		Candidates.Add({ C, Pose });
 	}
@@ -487,16 +483,55 @@ FAftermathShotOutcome UAftermathCombatComponent::ServerHandleFire(const FVector&
 	return Out;
 }
 
-void UAftermathCombatComponent::ApplyHit(AAftermathCharacter& Victim, EAftermathHitZone Zone, float Damage, float Blood, float CutChance,
+namespace AftermathCombat
+{
+	bool IsHittable(const AActor* Actor)
+	{
+		if (const AAftermathCharacter* S = Cast<AAftermathCharacter>(Actor))
+		{
+			return !S->IsDead();
+		}
+		if (const AAftermathInfected* I = Cast<AAftermathInfected>(Actor))
+		{
+			return !I->IsDead();
+		}
+		return false;
+	}
+}
+
+void UAftermathCombatComponent::ApplyHit(ACharacter& Victim, EAftermathHitZone Zone, float Damage, float Blood, float CutChance,
 	const FVector& From, const FVector& Impact)
 {
+	FAftermathHitNotify Notify;
+	if (AAftermathCharacter* S = Cast<AAftermathCharacter>(&Victim))
+	{
+		Notify = ApplyHitToSurvivor(*S, Zone, Damage, Blood, CutChance, From, Impact, GetSurvivor());
+	}
+	else if (AAftermathInfected* I = Cast<AAftermathInfected>(&Victim))
+	{
+		Notify = I->ServerApplyHit(Zone, Damage, From, Impact, GetSurvivor());
+	}
+	else
+	{
+		return;
+	}
+	ClientHitConfirmed(Notify);
+}
+
+FAftermathHitNotify UAftermathCombatComponent::ApplyHitToSurvivor(AAftermathCharacter& Victim, EAftermathHitZone Zone, float Damage, float Blood,
+	float CutChance, const FVector& From, const FVector& Impact, const AActor* Instigator)
+{
+	FAftermathHitNotify Notify;
+	Notify.ImpactPoint = Impact;
+	Notify.FromLocation = From;
+	Notify.Zone = Zone;
+
 	UAftermathSurvivalComponent* S = Victim.GetSurvival();
 	UAftermathInventoryComponent* VictimInv = Victim.GetInventory();
 	if (!S)
 	{
-		return;
+		return Notify;
 	}
-
 	// Armor for the zone (helmet for head, plate carrier for torso).
 	const FAftermathItemDef* ArmorDef = nullptr;
 	FAftermathItemInstance* ArmorItem = nullptr;
@@ -537,16 +572,12 @@ void UAftermathCombatComponent::ApplyHit(AAftermathCharacter& Victim, EAftermath
 	}
 	const bool bKilled = bWasAlive && S->IsDead();
 
-	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] Hit victim=%s zone=%s damage=%.0f blood=%.0f armor=%s killed=%d"),
-		*Victim.GetName(), ZoneName(Zone), R.Damage, R.Blood, ArmorDef ? *ArmorDef->Id.ToString() : TEXT("none"), bKilled ? 1 : 0);
+	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] Hit victim=%s zone=%s damage=%.0f blood=%.0f armor=%s killed=%d by=%s"),
+		*Victim.GetName(), ZoneName(Zone), R.Damage, R.Blood, ArmorDef ? *ArmorDef->Id.ToString() : TEXT("none"), bKilled ? 1 : 0,
+		*GetNameSafe(Instigator));
 
-	FAftermathHitNotify Notify;
-	Notify.ImpactPoint = Impact;
-	Notify.FromLocation = From;
-	Notify.Zone = Zone;
 	Notify.Damage = R.Damage;
 	Notify.bKilled = bKilled;
-	ClientHitConfirmed(Notify);
 	if (UAftermathCombatComponent* VictimCombat = Victim.GetCombat())
 	{
 		VictimCombat->ClientTookHit(Notify);
@@ -554,11 +585,11 @@ void UAftermathCombatComponent::ApplyHit(AAftermathCharacter& Victim, EAftermath
 
 	if (bKilled)
 	{
-		const AAftermathCharacter* Killer = GetSurvivor();
 		UE_LOG(LogAftermath, Display, TEXT("[Aftermath] Kill killer=%s victim=%s zone=%s"),
-			*GetNameSafe(Killer), *Victim.GetName(), ZoneName(Zone));
+			*GetNameSafe(Instigator), *Victim.GetName(), ZoneName(Zone));
 	}
-}
+	return Notify;
+	}
 
 bool UAftermathCombatComponent::ServerHandleMelee(const FVector& InDirection)
 {
@@ -607,13 +638,13 @@ bool UAftermathCombatComponent::ServerHandleMelee(const FVector& InDirection)
 	const bool bWall = World->LineTraceSingleByObjectType(WallHit, Eye, End, BulletWorldObjects(), Params);
 	const FVector Reach = bWall ? WallHit.ImpactPoint : End;
 
-	AAftermathCharacter* Best = nullptr;
+	ACharacter* Best = nullptr;
 	float BestT = 2.f;
 	FVector BestPoint = FVector::ZeroVector;
-	for (TActorIterator<AAftermathCharacter> It(World); It; ++It)
+	for (TActorIterator<ACharacter> It(World); It; ++It)
 	{
-		AAftermathCharacter* C = *It;
-		if (C == Attacker || C->IsDead())
+		ACharacter* C = *It;
+		if (C == Attacker || !AftermathCombat::IsHittable(C))
 		{
 			continue;
 		}
@@ -642,7 +673,8 @@ bool UAftermathCombatComponent::ServerHandleMelee(const FVector& InDirection)
 	}
 	const float Bottom = Best->GetActorLocation().Z - Best->GetCapsuleComponent()->GetScaledCapsuleHalfHeight();
 	const float Height01 = (BestPoint.Z - Bottom) / (Best->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() * 2.f);
-	const EAftermathHitZone Zone = AftermathBallistics::ZoneFromHeight(Height01, Best->GetStance() == EAftermathStance::Prone);
+	const AAftermathCharacter* BestSurvivor = Cast<AAftermathCharacter>(Best);
+	const EAftermathHitZone Zone = AftermathBallistics::ZoneFromHeight(Height01, BestSurvivor && BestSurvivor->GetStance() == EAftermathStance::Prone);
 	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] Melee by=%s weapon=%s hit=%s zone=%s"),
 		*Attacker->GetName(), bArmed ? *Def->Id.ToString() : TEXT("fists"), *Best->GetName(), ZoneName(Zone));
 	// Melee zone multiplier is flatter than guns (a bat to the head isn't 3x).

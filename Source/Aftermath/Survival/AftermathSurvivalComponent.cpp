@@ -6,6 +6,8 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Items/AftermathInventoryComponent.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/AftermathCharacter.h"
 
@@ -286,6 +288,15 @@ void UAftermathSurvivalComponent::ApplyDamage(float HealthDamage, float BloodDam
 	{
 		return;
 	}
+#if !UE_BUILD_SHIPPING
+	// Load tests keep one player alive inside a horde (server started with both flags). Never in Shipping.
+	static const bool bGodMode = FParse::Param(FCommandLine::Get(), TEXT("AftermathAllowDebug"))
+		&& FParse::Param(FCommandLine::Get(), TEXT("AftermathGodMode"));
+	if (bGodMode)
+	{
+		return;
+	}
+#endif
 	Vitals.Health -= FMath::Max(0.f, HealthDamage);
 	Vitals.Blood -= FMath::Max(0.f, BloodDamage);
 	if (Vitals.Health <= 0.f || Vitals.Blood <= 0.f)

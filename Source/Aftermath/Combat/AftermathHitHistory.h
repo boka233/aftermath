@@ -51,7 +51,8 @@ public:
 	/** Record everyone now (also called by Tick). Tests call it directly. */
 	void RecordAll();
 
-	bool GetPoseAt(const AAftermathCharacter* Who, double Time, FAftermathPoseSample& Out) const;
+	/** Survivors and infected (anything a bullet can hit). */
+	bool GetPoseAt(const AActor* Who, double Time, FAftermathPoseSample& Out) const;
 
 	/** Server time now. */
 	double Now() const;
@@ -63,5 +64,5 @@ public:
 	static constexpr double MaxRewindSeconds = 0.25;
 
 private:
-	TMap<TWeakObjectPtr<AAftermathCharacter>, FAftermathPoseBuffer> Buffers;
+	TMap<TWeakObjectPtr<AActor>, FAftermathPoseBuffer> Buffers;
 };
