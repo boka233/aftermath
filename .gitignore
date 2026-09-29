@@ -1,0 +1,37 @@
+# Unreal generated
+Binaries/
+Intermediate/
+DerivedDataCache/
+Saved/
+Build/*
+!Build/*.ini
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# IDE / project files (regenerate with GenerateProjectFiles)
+.vs/
+.vscode/
+.idea/
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.vcxproj*
+*.xcodeproj
+*.xcworkspace
+
+# MCP client config is machine-local
+.mcp.json
+
+# Build output
+Packaged/
+*.pdb
+*.log
+
+# OS
+Thumbs.db
+Desktop.ini
+.DS_Store

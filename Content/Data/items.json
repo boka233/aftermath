@@ -1,0 +1,52 @@
+[
+	{ "Id": "Bandage",        "Name": "绷带",       "Category": "Medical",  "Size": { "X": 1, "Y": 1 }, "WeightGrams": 50,   "MaxStack": 4,  "Use": { "Action": "Bandage", "StopsBleeding": true } },
+	{ "Id": "Rag",            "Name": "布条",       "Category": "Medical",  "Size": { "X": 1, "Y": 1 }, "WeightGrams": 20,   "MaxStack": 6,  "Use": { "Action": "Bandage", "StopsBleeding": true, "InfectionChance": 0.15 } },
+	{ "Id": "Splint",         "Name": "夹板",       "Category": "Medical",  "Size": { "X": 1, "Y": 3 }, "WeightGrams": 300,  "MaxStack": 1,  "Use": { "Action": "Splint" } },
+	{ "Id": "Tetracycline",   "Name": "四环素",     "Category": "Medical",  "Size": { "X": 1, "Y": 1 }, "WeightGrams": 30,   "MaxStack": 1,  "Uses": 6, "Use": { "Action": "Medicine", "CuresSickness": true } },
+	{ "Id": "Charcoal",       "Name": "活性炭",     "Category": "Medical",  "Size": { "X": 1, "Y": 1 }, "WeightGrams": 30,   "MaxStack": 1,  "Uses": 6, "Use": { "Action": "Medicine", "CuresPoisoning": true } },
+
+	{ "Id": "WaterBottle",    "Name": "水瓶",       "Category": "Drink",    "Size": { "X": 1, "Y": 2 }, "WeightGrams": 1100, "MaxStack": 1,  "Uses": 5, "Use": { "Action": "Drink", "Water": 200 } },
+	{ "Id": "Soda",           "Name": "汽水",       "Category": "Drink",    "Size": { "X": 1, "Y": 2 }, "WeightGrams": 350,  "MaxStack": 1,  "Uses": 1, "Use": { "Action": "Drink", "Water": 300, "Energy": 60 } },
+	{ "Id": "CannedBeans",    "Name": "豆子罐头",   "Category": "Food",     "Size": { "X": 1, "Y": 1 }, "WeightGrams": 400,  "MaxStack": 1,  "Uses": 1, "OpensInto": "CannedBeansOpen", "Use": { "Action": "None" } },
+	{ "Id": "CannedBeansOpen","Name": "开了的豆子罐头","Category": "Food",  "Size": { "X": 1, "Y": 1 }, "WeightGrams": 400,  "MaxStack": 1,  "Uses": 4, "Use": { "Action": "Eat", "Energy": 150, "Water": 20 } },
+	{ "Id": "Apple",          "Name": "苹果",       "Category": "Food",     "Size": { "X": 1, "Y": 1 }, "WeightGrams": 150,  "MaxStack": 1,  "Uses": 1, "Use": { "Action": "Eat", "Energy": 80, "Water": 60 } },
+	{ "Id": "RawMeat",        "Name": "生肉",       "Category": "Food",     "Size": { "X": 1, "Y": 1 }, "WeightGrams": 250,  "MaxStack": 1,  "Uses": 1, "Use": { "Action": "Eat", "Energy": 120, "PoisonChance": 0.7 } },
+
+	{ "Id": "Knife",          "Name": "小刀",       "Category": "Tool",     "Size": { "X": 1, "Y": 2 }, "WeightGrams": 200,  "MaxStack": 1,  "Tags": ["OpensCans", "Cuts"] },
+	{ "Id": "CanOpener",      "Name": "开罐器",     "Category": "Tool",     "Size": { "X": 1, "Y": 1 }, "WeightGrams": 80,   "MaxStack": 1,  "Tags": ["OpensCans"] },
+
+	{ "Id": "Ammo9mm",        "Name": "9mm 子弹",   "Category": "Ammo",     "Size": { "X": 1, "Y": 1 }, "WeightGrams": 8,    "MaxStack": 50 },
+	{ "Id": "Mag9mm",         "Name": "9mm 弹匣",   "Category": "Magazine", "Size": { "X": 1, "Y": 2 }, "WeightGrams": 90,   "MaxStack": 1,  "Magazine": { "Ammo": "Ammo9mm", "Capacity": 15 } },
+
+	{ "Id": "TShirt",         "Name": "T 恤",       "Category": "Clothing", "Size": { "X": 2, "Y": 2 }, "WeightGrams": 250,  "MaxStack": 1,  "Tags": ["Tearable"], "Wear": { "Slot": "Torso", "Insulation": 0.10, "Grid": { "X": 2, "Y": 2 } } },
+	{ "Id": "Hoodie",         "Name": "连帽衫",     "Category": "Clothing", "Size": { "X": 3, "Y": 3 }, "WeightGrams": 600,  "MaxStack": 1,  "Tags": ["Tearable"], "Wear": { "Slot": "Torso", "Insulation": 0.35, "Grid": { "X": 3, "Y": 3 } } },
+	{ "Id": "Jeans",          "Name": "牛仔裤",     "Category": "Clothing", "Size": { "X": 2, "Y": 3 }, "WeightGrams": 700,  "MaxStack": 1,  "Tags": ["Tearable"], "Wear": { "Slot": "Legs",  "Insulation": 0.20, "Grid": { "X": 2, "Y": 3 } } },
+	{ "Id": "Sneakers",       "Name": "运动鞋",     "Category": "Clothing", "Size": { "X": 2, "Y": 2 }, "WeightGrams": 500,  "MaxStack": 1,  "Wear": { "Slot": "Feet",  "Insulation": 0.05 } },
+	{ "Id": "Backpack",       "Name": "登山包",     "Category": "Clothing", "Size": { "X": 4, "Y": 4 }, "WeightGrams": 1200, "MaxStack": 1,  "Wear": { "Slot": "Back",  "Insulation": 0.05, "Grid": { "X": 6, "Y": 6 } } },
+
+	{ "Id": "Ammo545",        "Name": "5.45mm 子弹", "Category": "Ammo",    "Size": { "X": 1, "Y": 1 }, "WeightGrams": 10,   "MaxStack": 60 },
+	{ "Id": "Mag545",         "Name": "5.45mm 弹匣", "Category": "Magazine","Size": { "X": 1, "Y": 2 }, "WeightGrams": 250,  "MaxStack": 1,  "Magazine": { "Ammo": "Ammo545", "Capacity": 30 } },
+
+	{ "Id": "Pistol",         "Name": "9mm 手枪",   "Category": "Weapon",   "Size": { "X": 2, "Y": 2 }, "WeightGrams": 900,  "MaxStack": 1,
+	  "Wear": { "Slot": "Hands" },
+	  "Firearm": { "Magazines": ["Mag9mm"], "Damage": 40, "BloodDamage": 500, "MuzzleVelocity": 36000, "Rpm": 450, "MaxRange": 15000,
+	               "SpreadAimDeg": 0.35, "SpreadHipDeg": 2.0, "RecoilPitchDeg": 1.4, "RecoilYawDeg": 0.4, "ReloadSeconds": 1.6, "NoiseRadius": 15000 } },
+	{ "Id": "Rifle",          "Name": "突击步枪",   "Category": "Weapon",   "Size": { "X": 6, "Y": 2 }, "WeightGrams": 3300, "MaxStack": 1,
+	  "Wear": { "Slot": "Hands" },
+	  "Firearm": { "Magazines": ["Mag545"], "Damage": 55, "BloodDamage": 800, "MuzzleVelocity": 88000, "Rpm": 650, "MaxRange": 60000,
+	               "SpreadAimDeg": 0.08, "SpreadHipDeg": 3.5, "RecoilPitchDeg": 0.9, "RecoilYawDeg": 0.35, "ReloadSeconds": 2.4, "NoiseRadius": 40000, "bFullAuto": true } },
+
+	{ "Id": "Axe",            "Name": "消防斧",     "Category": "Weapon",   "Size": { "X": 2, "Y": 5 }, "WeightGrams": 2600, "MaxStack": 1,  "Tags": ["Cuts"],
+	  "Wear": { "Slot": "Hands" },
+	  "Melee": { "Damage": 45, "Range": 190, "Cooldown": 1.1, "StaminaCost": 18, "CutChance": 0.6 } },
+	{ "Id": "Bat",            "Name": "棒球棍",     "Category": "Weapon",   "Size": { "X": 1, "Y": 5 }, "WeightGrams": 1000, "MaxStack": 1,
+	  "Wear": { "Slot": "Hands" },
+	  "Melee": { "Damage": 30, "Range": 180, "Cooldown": 0.8, "StaminaCost": 12 } },
+
+	{ "Id": "Helmet",         "Name": "战术头盔",   "Category": "Armor",    "Size": { "X": 2, "Y": 2 }, "WeightGrams": 1400, "MaxStack": 1,
+	  "Wear": { "Slot": "Head", "Insulation": 0.05 },
+	  "Armor": { "Zone": "Head", "Absorb": 0.6, "WearPerDamage": 0.006 } },
+	{ "Id": "PlateCarrier",   "Name": "防弹背心",   "Category": "Armor",    "Size": { "X": 3, "Y": 3 }, "WeightGrams": 4500, "MaxStack": 1,
+	  "Wear": { "Slot": "Vest", "Insulation": 0.1, "Grid": { "X": 2, "Y": 2 } },
+	  "Armor": { "Zone": "Torso", "Absorb": 0.55, "WearPerDamage": 0.004 } }
+]
