@@ -18,6 +18,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Movement/AftermathMovementComponent.h"
+#include "NavigationInvokerComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "Survival/AftermathSurvivalComponent.h"
 #include "UObject/ConstructorHelpers.h"
@@ -51,6 +52,10 @@ AAftermathCharacter::AAftermathCharacter(const FObjectInitializer& ObjectInitial
 	Inventory = CreateDefaultSubobject<UAftermathInventoryComponent>(TEXT("Inventory"));
 	Survival = CreateDefaultSubobject<UAftermathSurvivalComponent>(TEXT("Survival"));
 	Combat = CreateDefaultSubobject<UAftermathCombatComponent>(TEXT("Combat"));
+
+	// 60 m around each survivor gets a navmesh (only used when invoker-based generation is on).
+	NavInvoker = CreateDefaultSubobject<UNavigationInvokerComponent>(TEXT("NavInvoker"));
+	NavInvoker->SetGenerationRadii(6000.f, 8000.f);
 
 #if !UE_BUILD_SHIPPING
 	// Inert unless the process was started with -AftermathScript=<name>.
@@ -557,6 +562,26 @@ void AAftermathCharacter::ServerDebugGiveItem_Implementation(FName ItemId)
 	}
 	Inventory->AddItem(AftermathItems::MakeInstance(*Def));
 	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] DebugGive item=%s to=%s"), *ItemId.ToString(), *GetName());
+#endif
+}
+
+void AAftermathCharacter::DebugServerTeleport(const FVector& Location)
+{
+#if !UE_BUILD_SHIPPING
+	ServerDebugTeleport(Location);
+#endif
+}
+
+void AAftermathCharacter::ServerDebugTeleport_Implementation(FVector_NetQuantize Location)
+{
+#if !UE_BUILD_SHIPPING
+	if (!FParse::Param(FCommandLine::Get(), TEXT("AftermathAllowDebug")))
+	{
+		UE_LOG(LogAftermath, Warning, TEXT("[Aftermath] DebugRejected op=teleport by=%s (server not started with -AftermathAllowDebug)"), *GetName());
+		return;
+	}
+	TeleportTo(Location, GetActorRotation());
+	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] DebugTeleport who=%s to=%s"), *GetName(), *Location.ToCompactString());
 #endif
 }
 

@@ -1,0 +1,32 @@
+{
+	"Comment": "Loot economy (DayZ central economy, simplified). Each item keeps about Nominal copies on the ground across the map, never more than Max. Spawn points are tagged by the building they sit in; an item only spawns at points with one of its Tags. Lifetime = seconds an untouched item lies on the ground before cleanup.",
+	"RestockIntervalSeconds": 60,
+	"RestockBatch": 40,
+	"MinPlayerDistance": 5000,
+	"Items": [
+		{ "Id": "CannedBeans",  "Nominal": 60, "Max": 80, "Count": 1,  "Tags": ["House", "Farm"],             "Lifetime": 3600 },
+		{ "Id": "Apple",        "Nominal": 40, "Max": 60, "Count": 1,  "Tags": ["Farm", "House"],             "Lifetime": 1800 },
+		{ "Id": "Soda",         "Nominal": 40, "Max": 60, "Count": 1,  "Tags": ["House"],                     "Lifetime": 3600 },
+		{ "Id": "WaterBottle",  "Nominal": 30, "Max": 45, "Count": 1,  "Tags": ["House", "Farm"],             "Lifetime": 3600 },
+		{ "Id": "CanOpener",    "Nominal": 15, "Max": 25, "Count": 1,  "Tags": ["House"],                     "Lifetime": 3600 },
+		{ "Id": "Knife",        "Nominal": 15, "Max": 25, "Count": 1,  "Tags": ["House", "Farm"],             "Lifetime": 3600 },
+		{ "Id": "Hoodie",       "Nominal": 20, "Max": 30, "Count": 1,  "Tags": ["House"],                     "Lifetime": 3600 },
+		{ "Id": "Jeans",        "Nominal": 20, "Max": 30, "Count": 1,  "Tags": ["House"],                     "Lifetime": 3600 },
+		{ "Id": "Backpack",     "Nominal": 10, "Max": 15, "Count": 1,  "Tags": ["House", "Military"],         "Lifetime": 3600 },
+		{ "Id": "Rag",          "Nominal": 30, "Max": 45, "Count": 2,  "Tags": ["House", "Farm"],             "Lifetime": 3600 },
+		{ "Id": "Bandage",      "Nominal": 20, "Max": 30, "Count": 1,  "Tags": ["Medical", "Police"],         "Lifetime": 3600 },
+		{ "Id": "Splint",       "Nominal": 10, "Max": 15, "Count": 1,  "Tags": ["Medical"],                   "Lifetime": 3600 },
+		{ "Id": "Tetracycline", "Nominal": 8,  "Max": 12, "Count": 1,  "Tags": ["Medical"],                   "Lifetime": 3600 },
+		{ "Id": "Charcoal",     "Nominal": 8,  "Max": 12, "Count": 1,  "Tags": ["Medical"],                   "Lifetime": 3600 },
+		{ "Id": "Bat",          "Nominal": 10, "Max": 15, "Count": 1,  "Tags": ["House", "Farm"],             "Lifetime": 3600 },
+		{ "Id": "Axe",          "Nominal": 8,  "Max": 12, "Count": 1,  "Tags": ["Farm"],                      "Lifetime": 3600 },
+		{ "Id": "Pistol",       "Nominal": 6,  "Max": 10, "Count": 1,  "Tags": ["Police", "Military"],        "Lifetime": 7200 },
+		{ "Id": "Mag9mm",       "Nominal": 10, "Max": 15, "Count": 1,  "Tags": ["Police", "Military"],        "Lifetime": 7200 },
+		{ "Id": "Ammo9mm",      "Nominal": 12, "Max": 20, "Count": 15, "Tags": ["Police", "Military"],        "Lifetime": 7200 },
+		{ "Id": "Rifle",        "Nominal": 3,  "Max": 5,  "Count": 1,  "Tags": ["Military"],                  "Lifetime": 7200 },
+		{ "Id": "Mag545",       "Nominal": 5,  "Max": 8,  "Count": 1,  "Tags": ["Military"],                  "Lifetime": 7200 },
+		{ "Id": "Ammo545",      "Nominal": 8,  "Max": 12, "Count": 20, "Tags": ["Military"],                  "Lifetime": 7200 },
+		{ "Id": "Helmet",       "Nominal": 4,  "Max": 6,  "Count": 1,  "Tags": ["Military", "Police"],        "Lifetime": 7200 },
+		{ "Id": "PlateCarrier", "Nominal": 3,  "Max": 5,  "Count": 1,  "Tags": ["Military"],                  "Lifetime": 7200 }
+	]
+}

@@ -2,8 +2,12 @@
 
 #include "Aftermath.h"
 #include "Combat/AftermathNoise.h"
+#include "AI/Navigation/NavRelevantInterface.h"
+#include "Components/PrimitiveComponent.h"
+#include "Engine/HitResult.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "GameFramework/PlayerStart.h"
 #include "HAL/PlatformTime.h"
 #include "Infected/AftermathInfected.h"
 #include "Misc/CommandLine.h"
@@ -264,8 +268,9 @@ void UAftermathInfectedManager::Tick(float DeltaTime)
 			}
 		}
 		UE_LOG(LogAftermath, Display,
-			TEXT("[Aftermath] InfectedStats infected=%d alive=%d awake=%d chasing=%d players=%d frames=%d fps=%.1f world_tick_ms_avg=%.2f world_tick_ms_max=%.2f manager_ms_avg=%.3f"),
-			Infected.Num(), Alive, AwakeCount, Chasing, Players.Num(), Frames, Frames / 5.0, WorldAvg, WorldMax, AvgTickMs);
+			TEXT("[Aftermath] InfectedStats infected=%d alive=%d awake=%d chasing=%d players=%d frames=%d fps=%.1f world_tick_ms_avg=%.2f world_tick_ms_max=%.2f manager_ms_avg=%.3f nav_paths=%d direct_paths=%d"),
+			Infected.Num(), Alive, AwakeCount, Chasing, Players.Num(), Frames, Frames / 5.0, WorldAvg, WorldMax, AvgTickMs,
+			AAftermathInfected::NavPathsFound, AAftermathInfected::DirectPaths);
 	}
 }
 
@@ -276,9 +281,33 @@ void UAftermathInfectedManager::OnNavBuilt(ANavigationData* NavData)
 		return;
 	}
 	bLoggedNavBuilt = true;
+
+	// Diagnostic: is the ground under the first player something the navmesh can use?
+	for (TActorIterator<AAftermathCharacter> It(GetWorld()); It; ++It)
+	{
+		const FVector From = It->GetActorLocation() + FVector(0, 0, 200.f);
+		FHitResult Hit;
+		FCollisionQueryParams Q(SCENE_QUERY_STAT(AftermathNavDiag), true, *It);
+		if (GetWorld()->LineTraceSingleByChannel(Hit, From, From - FVector(0, 0, 5000.f), ECC_WorldStatic, Q) && Hit.GetComponent())
+		{
+			const UPrimitiveComponent* Ground = Hit.GetComponent();
+			const INavRelevantInterface* NavRel = Cast<INavRelevantInterface>(Ground);
+			UE_LOG(LogAftermath, Display, TEXT("[Aftermath] NavGroundDiag comp=%s class=%s owner=%s can_affect_nav=%d nav_relevant=%d gather_mode=%d z=%.0f"),
+				*Ground->GetName(), *Ground->GetClass()->GetName(), *GetNameSafe(Ground->GetOwner()),
+				Ground->CanEverAffectNavigation() ? 1 : 0, NavRel ? (NavRel->IsNavigationRelevant() ? 1 : 0) : -1,
+				NavRel ? static_cast<int32>(NavRel->GetGeometryGatheringMode()) : -1, Hit.ImpactPoint.Z);
+		}
+		else
+		{
+			UE_LOG(LogAftermath, Display, TEXT("[Aftermath] NavGroundDiag no ground hit under %s"), *It->GetName());
+		}
+		break;
+	}
+
 	const FBox Bounds = NavData->GetBounds();
-	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] NavMeshReady data=%s bounds=%s"),
-		*NavData->GetName(), Bounds.IsValid ? *Bounds.GetExtent().ToCompactString() : TEXT("none"));
+	UE_LOG(LogAftermath, Display, TEXT("[Aftermath] NavMeshReady data=%s bounds=%s center=%s"),
+		*NavData->GetName(), Bounds.IsValid ? *Bounds.GetExtent().ToCompactString() : TEXT("none"),
+		Bounds.IsValid ? *Bounds.GetCenter().ToCompactString() : TEXT("none"));
 }
 
 int32 UAftermathInfectedManager::SpawnAround(const FVector& Center, float Radius, int32 Count, EAftermathInfectedType Type)
@@ -330,8 +359,18 @@ void UAftermathInfectedManager::SpawnFromCommandLine()
 	const int32 Soldiers = N / 10;
 	const int32 Police = N / 5;
 	const int32 Civilians = N - Soldiers - Police;
-	const FVector Center(0.f, 0.f, 0.f);
-	const float Radius = 2700.f;
+	// Around the "City" spawn on the big map (so a test player there meets them); map centre otherwise.
+	FVector Center(0.f, 0.f, 0.f);
+	float Radius = 2700.f;
+	for (TActorIterator<APlayerStart> It(GetWorld()); It; ++It)
+	{
+		if (It->PlayerStartTag == TEXT("City"))
+		{
+			Center = It->GetActorLocation();
+			Radius = 5000.f;
+			break;
+		}
+	}
 	int32 Spawned = 0;
 	Spawned += SpawnAround(Center, Radius, Civilians, EAftermathInfectedType::Civilian);
 	Spawned += SpawnAround(Center, Radius, Police, EAftermathInfectedType::Police);

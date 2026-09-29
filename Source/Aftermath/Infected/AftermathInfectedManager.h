@@ -47,6 +47,7 @@ public:
 	void SetLight01(float InLight) { Light01 = FMath::Clamp(InLight, 0.f, 1.f); }
 
 	float GetRain01() const { return Rain01; }
+	void SetRain01(float InRain) { Rain01 = FMath::Clamp(InRain, 0.f, 1.f); }
 
 	int32 NumInfected() const { return Infected.Num(); }
 	int32 NumAwake() const { return AwakeCount; }

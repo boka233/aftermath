@@ -23,8 +23,8 @@
 | 2 生存 + 背包 | 生存数值和伤病、格子背包、装备栏、附近栏、物品组合 | ✅ 完成 |
 | 3 战斗 PvP | 枪械弹道、弹匣、后坐力、延迟补偿命中、近战、部位伤害、护甲、死亡掉落 | ✅ 完成 |
 | 4 感染者 | 服务器 AI：视觉、听觉、叫同伴；按距离降低更新频率 | ✅ 完成 |
-| 5 世界 | 10×10 公里地形、World Partition、城镇和军事区、物资刷新、昼夜天气 | ⬜ 下一个（先出方案） |
-| 6 持久化 | SQLite 存档、断线保护、永久死亡、服务器配置、登录流程 | ⬜ |
+| 5 世界 | 10×10 公里地形、World Partition、城镇和军事区、物资刷新、昼夜天气 | ✅ 完成 |
+| 6 持久化 | SQLite 存档、断线保护、永久死亡、服务器配置、登录流程 | ⬜ 下一个（先出方案） |
 | 7 写实化 | 换正式素材、MetaHuman、动画、音效、Lumen 调光、性能、压力测试 | ⬜ |
 | 8 上线准备 | Linux 服务器、云端部署、反作弊（EAC）、服务器列表 | ⬜ |
 
@@ -80,6 +80,19 @@
 - 简化版 DayZ 中央经济：刷新点按类别，物品有全图目标数量，地上物品定时清理
 - 昼夜和天气由服务器统一计算
 
+阶段 5 完成情况：
+- 地形生成纯逻辑（`World/AftermathTerrainGen`）：丘陵 + 海岸线高度图、城镇/军事区布局、道路、出生点，输出 .r16
+- 编辑器模块 `AftermathEditor`（只在编辑器里加载）：`CreateLandscapeFromR16`、导航诊断等给 Python 脚本调用
+- 地图 `/Game/Maps/World`：`Tools/build_world_map.py` 生成，World Partition 地形 4033²（10×10 km）、海面、天空、126 栋灰盒建筑、633 段公路、11 个出生点，约 2 分钟
+- 导航：`Tools/build_world_nav.sh` 离线预生成（WorldPartitionNavigationDataBuilder），约 8 分钟，约 470 MB；运行时只更新门等修饰。Proto 仍在服务器开局时生成
+- 两个脚本都必须用 `-RenderOffscreen`（真 GPU）运行：`-nullrhi` 下地形编辑层高度不合并，地形会落在 -257 m，导航网格是空的
+- 物资经济：`Content/Data/loot.json` 配置全图目标数量和刷新类别，`UAftermathLootManager` 按刷新点标签补刷，地上物品定时清理
+- 昼夜天气：`AAftermathGameState` 同步时钟和雨，体温、感染者视距/听觉跟着变，客户端太阳角度和雨雾跟着变
+- 服务器帧率：Windows 11 会忽略没有窗口的进程的 1 ms 定时器精度，服务器只能跑 21 帧。模块启动时关掉这个节能行为，现在稳定 30 帧
+- 测试：自动化 66 个全过；`smoke_stage5.sh` 26/26（海边出生→往内陆走→城里捡物资，另有 60 个感染者，服务器 30 帧、约 178 MB 内存、寻路 nav_paths>0 且 direct_paths=0）；阶段 2/3/4 回归 44/44、32/32、26/26
+- 修了测试脚本：阶段 2 回归曾挂 10 项，mover 往反方向走、没走到门口。推测是脚本客户端窗口拿到焦点后被真实鼠标转了向；脚本运行时现在会屏蔽鼠标视角，日志里也记下位置和朝向，之后稳定通过
+- 编辑器模式联机测试的 Iris"模块加载太晚"警告也修了（预加载 SequenceRecorder、CollisionAnalyzer）
+
 ### 阶段 6：持久化
 - SQLite 存角色、背包、世界物品、尸体、搜过的容器
 - 断线时角色留在原地一段时间
@@ -134,7 +147,7 @@ Engine\Build\BatchFiles\Build.bat AftermathEditor Win64 Development -Project=D:\
 Engine\Build\BatchFiles\RunUAT.bat BuildCookRun -project=D:\NAR\narprojects\game\Aftermath.uproject -noP4 -platform=Win64 -server -serverplatform=Win64 -client -clientconfig=Development -serverconfig=Development -build -cook -stage -pak -archive -archivedirectory=D:\NAR\narprojects\game\Packaged -unattended
 ```
 
-自动化测试（57 个）：
+自动化测试（66 个）：
 ```
 UnrealEditor-Cmd.exe Aftermath.uproject -ExecCmds="Automation RunTests Aftermath.; Quit" -unattended -nullrhi -testexit="Automation Test Queue Empty"
 ```
@@ -159,9 +172,20 @@ bash Tools/smoke_stage4.sh packaged
 bash Tools/perf_infected.sh packaged 150 45
 ```
 
+世界地图联机测试（1 服务器 + 2 脚本客户端，海边/城市出生，26 项检查，端口 17777）：
+```
+bash Tools/smoke_stage5.sh packaged
+```
+
 重建测试地图：
 ```
 UnrealEditor.exe Aftermath.uproject -ExecutePythonScript=Tools/build_proto_map.py -unattended -nullrhi
+```
+
+重建世界地图和导航网格（必须用 `-RenderOffscreen`，不能用 `-nullrhi`；退出时偶尔崩溃不影响结果，以日志里 `RESULT=OK` 为准）：
+```
+UnrealEditor.exe Aftermath.uproject -ExecutePythonScript=Tools/build_world_map.py -unattended -RenderOffscreen
+bash Tools/build_world_nav.sh
 ```
 
 手动试玩：先运行 `Packaged\WindowsServer\AftermathServer.exe -log -port=7777`，看到 `listening on port 7777` 后运行 `Packaged\WindowsClient\AftermathClient.exe 127.0.0.1:7777 -windowed`。
@@ -169,12 +193,12 @@ UnrealEditor.exe Aftermath.uproject -ExecutePythonScript=Tools/build_proto_map.p
 ## 待处理
 
 - 磁盘：C 盘约剩 44GB，D 盘约剩 107GB，大地图和素材会继续占用
-- 代码在 GitHub `boka233/aftermath`，分支 `stage3-combat`（阶段 0~3）、`stage4-infected`（阶段 4），还没合并到 main
+- 代码在 GitHub `boka233/aftermath`，分支 `stage3-combat`（阶段 0~3）、`stage4-infected`（阶段 4）、`stage5-world`（阶段 5），还没合并到 main
 - 还没有人亲手试玩过手感（跑动、镜头、翻越、背包操作）
-- 环境温度现在是固定值（偏凉），阶段 5 做昼夜天气时接上；光线值（影响感染者视距）也先固定为白天
+- World 地图还是灰盒：没有树和草（PCG 放到阶段 7），建筑是方块，没有 HLOD
+- World 地图（约 64 MB）和导航数据（约 470 MB）不进 git（见 .gitignore）。拉下代码后先跑 `build_world_map.py` 再跑 `build_world_nav.sh`（合计约 10 分钟）才能打包 World；改地图后也要重跑导航
 - 感染者还是灰色圆柱（追击时变红、警觉时变黄），没有动画和声音；吼叫只在日志里，玩家听不到
 - 压力测试是 1 个玩家站在 150 个感染者中间的最坏情况；多个玩家分散在大地图上时每个感染者的开销更低，但还没测过 60 人
-- 编辑器模式跑联机测试会有 Iris 的"模块加载太晚"警告（编辑器插件造成），打包版没有
 - 死亡后装备直接掉在地上，还没改成留在尸体上可搜刮（放到阶段 6 持久化一起做尸体）
 - 还没人亲手试过枪械手感（后坐力、瞄准、弹道线）；近战蓄力重击只有逻辑，没专门联机测
 - 测试靶子是站着不动的，移动目标的延迟补偿只在自动化测试里验证过

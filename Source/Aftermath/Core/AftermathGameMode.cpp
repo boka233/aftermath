@@ -1,6 +1,7 @@
 #include "Core/AftermathGameMode.h"
 
 #include "Aftermath.h"
+#include "Core/AftermathGameState.h"
 #include "Items/AftermathInventoryComponent.h"
 #include "Player/AftermathCharacter.h"
 #include "Player/AftermathPlayerController.h"
@@ -12,6 +13,7 @@
 AAftermathGameMode::AAftermathGameMode()
 {
 	DefaultPawnClass = AAftermathCharacter::StaticClass();
+	GameStateClass = AAftermathGameState::StaticClass();
 	PlayerControllerClass = AAftermathPlayerController::StaticClass();
 	HUDClass = AAftermathHUD::StaticClass();
 	// Spawn point selection: a client URL portal ("127.0.0.1:7777#StartA") picks the PlayerStart

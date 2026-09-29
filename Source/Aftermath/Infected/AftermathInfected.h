@@ -65,6 +65,10 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Infected")
 	bool bAllowWander = true;
 
+	/** Server-wide path stats (logged by the manager): navmesh paths vs straight-line fallbacks. */
+	static inline int32 NavPathsFound = 0;
+	static inline int32 DirectPaths = 0;
+
 	// Manager bookkeeping (server).
 	float ThinkAccum = 0.f;
 	bool bThinkNow = false;
@@ -92,6 +96,10 @@ protected:
 	/** Small block on the face so you can tell which way it looks. */
 	UPROPERTY(VisibleAnywhere, Category = "Infected")
 	TObjectPtr<UStaticMeshComponent> PlaceholderFace;
+
+	/** Keeps navmesh tiles around this infected while it's awake (server). Off while sleeping. */
+	UPROPERTY(VisibleAnywhere, Category = "Infected")
+	TObjectPtr<class UNavigationInvokerComponent> NavInvoker;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInstanceDynamic> BodyMaterial;

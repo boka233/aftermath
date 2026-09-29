@@ -9,5 +9,7 @@ public class AftermathEditorTarget : TargetRules
 	{
 		Type = TargetType.Editor;
 		AftermathTarget.ApplySharedSettings(this);
+		// Editor-only: map building helpers for the Python build scripts.
+		ExtraModuleNames.Add("AftermathEditor");
 	}
 }

@@ -12,7 +12,9 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "NavigationData.h"
+#include "NavigationInvokerComponent.h"
 #include "NavigationSystem.h"
+#include "NavMesh/RecastNavMesh.h"
 #include "Net/UnrealNetwork.h"
 #include "Player/AftermathCharacter.h"
 #include "UObject/ConstructorHelpers.h"
@@ -102,6 +104,10 @@ AAftermathInfected::AAftermathInfected(const FObjectInitializer& ObjectInitializ
 	PlaceholderFace->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	PlaceholderFace->SetRelativeLocation(FVector(28.f, 0.f, 65.f));
 	PlaceholderFace->SetRelativeScale3D(FVector(0.12f, 0.3f, 0.12f));
+
+	// Awake infected keep a navmesh patch around themselves (they can walk away from the players who woke them).
+	NavInvoker = CreateDefaultSubobject<UNavigationInvokerComponent>(TEXT("NavInvoker"));
+	NavInvoker->SetGenerationRadii(4000.f, 6000.f);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cylinder(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> Cube(TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -618,6 +624,47 @@ void AAftermathInfected::MoveTo(const FVector& Goal, bool bRun)
 		FPathFindingQuery Query(this, *NavData, GetNavAgentLocation(), Goal);
 		Query.SetAllowPartialPaths(true);
 		const FPathFindingResult R = Nav->FindPathSync(Query);
+		const ARecastNavMesh* RecastForLog = Cast<ARecastNavMesh>(NavData);
+		// Diagnose a few failures, but only once tiles exist (failures before the first build say nothing).
+		static int32 LoggedFailures = 0;
+		if (!R.IsSuccessful() && LoggedFailures < 5 && RecastForLog && RecastForLog->GetNumActiveTiles() > 0)
+		{
+			++LoggedFailures;
+			// Diagnose the first few failures (start/goal not on the mesh, or no tiles here yet).
+			FNavLocation StartOn, GoalOn;
+			const bool bStart = Nav->ProjectPointToNavigation(GetNavAgentLocation(), StartOn, FVector(200.f, 200.f, 500.f));
+			const bool bGoal = Nav->ProjectPointToNavigation(Goal, GoalOn, FVector(200.f, 200.f, 500.f));
+			const FBox NavBounds = NavData->GetBounds();
+			const ARecastNavMesh* Recast = Cast<ARecastNavMesh>(NavData);
+			// Tile pool capacity vs tiles that really hold polygons, plus the tile under our feet.
+			const int32 Capacity = Recast ? Recast->GetNavMeshTilesCount() : -1;
+			const int32 Active = Recast ? Recast->GetNumActiveTiles() : -1;
+			int32 TileX = -1, TileY = -1, HereTiles = 0, HerePolys = 0;
+			if (Recast && Recast->GetNavMeshTileXY(GetNavAgentLocation(), TileX, TileY))
+			{
+				TArray<FNavTileRef> Refs;
+				Recast->GetNavMeshTilesAt(TileX, TileY, Refs);
+				HereTiles = Refs.Num();
+				FString PolyAt;
+				for (const FNavTileRef& Ref : Refs)
+				{
+					TArray<FNavPoly> Polys;
+					Recast->GetPolysInTile(Ref, Polys);
+					HerePolys += Polys.Num();
+					for (int32 p = 0; p < FMath::Min(Polys.Num(), 3); ++p)
+					{
+						PolyAt += Polys[p].Center.ToCompactString() + TEXT(" ");
+					}
+				}
+				UE_LOG(LogAftermath, Display, TEXT("[Aftermath] InfectedPathFail polys_at=%s"), *PolyAt);
+			}
+			UE_LOG(LogAftermath, Display, TEXT("[Aftermath] InfectedPathFail who=%s result=%d start=%s on_mesh=%d goal=%s on_mesh=%d nav_center=%s nav_extent=%s tile_pool=%d active_tiles=%d here_tile=(%d,%d) here_layers=%d here_polys=%d"),
+				*GetName(), static_cast<int32>(R.Result), *GetNavAgentLocation().ToCompactString(), bStart ? 1 : 0,
+				*Goal.ToCompactString(), bGoal ? 1 : 0,
+				NavBounds.IsValid ? *NavBounds.GetCenter().ToCompactString() : TEXT("none"),
+				NavBounds.IsValid ? *NavBounds.GetExtent().ToCompactString() : TEXT("none"),
+				Capacity, Active, TileX, TileY, HereTiles, HerePolys);
+		}
 		if (R.IsSuccessful() && R.Path.IsValid())
 		{
 			for (const FNavPathPoint& P : R.Path->GetPathPoints())
@@ -629,10 +676,12 @@ void AAftermathInfected::MoveTo(const FVector& Goal, bool bRun)
 			{
 				PathIndex = 1;
 			}
+			++NavPathsFound;
 			return;
 		}
 	}
 	// No navmesh here (tests, or off-mesh): walk straight at it. Walls and closed doors still stop us.
+	++DirectPaths;
 	PathPoints.Add(Goal);
 }
 
@@ -757,6 +806,11 @@ void AAftermathInfected::SetSleeping(bool bSleep)
 	bSleeping = bSleep;
 	SetActorTickEnabled(!bSleep);
 	GetCharacterMovement()->SetComponentTickEnabled(!bSleep);
+	// Sleeping infected don't need a navmesh around them (saves tile generation on a big map).
+	if (NavInvoker)
+	{
+		NavInvoker->SetActive(!bSleep);
+	}
 	if (bSleep)
 	{
 		StopMoving();

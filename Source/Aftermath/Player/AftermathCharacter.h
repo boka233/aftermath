@@ -81,6 +81,9 @@ public:
 	/** Dev/test only: ask the server for one item by id (same -AftermathAllowDebug gate). */
 	void DebugGiveItem(FName ItemId);
 
+	/** Dev/test only: ask the server to move us (same -AftermathAllowDebug gate). */
+	void DebugServerTeleport(const FVector& Location);
+
 	/** Server: validate reach and use Target. Public so tests and the GameMode can drive it. */
 	bool ServerTryInteractWith(AActor* Target);
 
@@ -138,6 +141,9 @@ protected:
 	UFUNCTION(Server, Reliable)
 	void ServerDebugGiveItem(FName ItemId);
 
+	UFUNCTION(Server, Reliable)
+	void ServerDebugTeleport(FVector_NetQuantize Location);
+
 	/** Stats and ailments. Simulated on the server, replicated to the owner only. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Survival")
 	TObjectPtr<UAftermathSurvivalComponent> Survival;
@@ -145,6 +151,10 @@ protected:
 	/** Firing, melee, reloading. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat")
 	TObjectPtr<UAftermathCombatComponent> Combat;
+
+	/** Server: navmesh tiles are generated around every survivor (the infected near them need a path). */
+	UPROPERTY(VisibleAnywhere, Category = "Navigation")
+	TObjectPtr<class UNavigationInvokerComponent> NavInvoker;
 
 	/** Dead bodies stop taking input and stay as a (grey-box) corpse until the GameMode cleans them up. */
 	UPROPERTY(ReplicatedUsing = OnRep_Dead)

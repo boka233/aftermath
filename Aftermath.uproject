@@ -12,6 +12,11 @@
 				"Engine",
 				"CoreUObject"
 			]
+		},
+		{
+			"Name": "AftermathEditor",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
 		}
 	],
 	"Plugins": [

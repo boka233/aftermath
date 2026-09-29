@@ -9,6 +9,7 @@
 #include "Items/AftermathInventoryComponent.h"
 #include "Misc/CommandLine.h"
 #include "Combat/AftermathCombatComponent.h"
+#include "Core/AftermathGameState.h"
 #include "Infected/AftermathInfected.h"
 #include "Player/AftermathPlayerController.h"
 #include "Survival/AftermathSurvivalComponent.h"
@@ -406,6 +407,68 @@ void UAftermathTestScript::BuildScript()
 		}
 		Steps.Add({ 22.f, TEXT("done"), [](AAftermathCharacter&) {} });
 		}
+		else if (ScriptName == TEXT("explorer"))
+		{
+		// Stage 5, World map. Spawned on the coast (#Coast). Checks what streamed in around it, then walks
+		// inland for a while (World Partition streams cells as it moves), and picks up the nearest loot the
+		// economy placed. It reports the replicated clock/weather along the way.
+		Steps.Add({ 3.f, TEXT("look_around"), [this, Log](AAftermathCharacter& C)
+		{
+			int32 Pickups = 0;
+			for (TActorIterator<AAftermathPickup> It(GetWorld()); It; ++It) { ++Pickups; }
+			Log(FString::Printf(TEXT("step=look_around z=%.0f pickups_streamed=%d"), C.GetActorLocation().Z, Pickups));
+		} });
+		// Walk inland (spawn faces inland) for 20 s at a jog, ~90 m.
+		Steps.Add({ 4.f, TEXT("walk_inland"), [this](AAftermathCharacter& C) { HoldForwardUntil = 4.f + 20.f; } });
+		Steps.Add({ 25.f, TEXT("after_walk"), [Log](AAftermathCharacter& C)
+		{
+			Log(FString::Printf(TEXT("step=after_walk x=%.0f y=%.0f z=%.0f"), C.GetActorLocation().X, C.GetActorLocation().Y, C.GetActorLocation().Z));
+		} });
+		Steps.Add({ 27.f, TEXT("screenshot"), [](AAftermathCharacter&)
+		{
+			FScreenshotRequest::RequestScreenshot(TEXT("stage5_world"), true, false);
+		} });
+		Steps.Add({ 29.f, TEXT("done"), [](AAftermathCharacter&) {} });
+		}
+		else if (ScriptName == TEXT("looter"))
+		{
+		// Stage 5, World map, spawned in the city (#City): take the nearest item the economy put in a house.
+		Steps.Add({ 4.f, TEXT("take_nearest_loot"), [this, Log](AAftermathCharacter& C)
+		{
+			AAftermathPickup* Best = nullptr;
+			float BestD = TNumericLimits<float>::Max();
+			int32 Seen = 0;
+			for (TActorIterator<AAftermathPickup> It(GetWorld()); It; ++It)
+			{
+				++Seen;
+				const float D = FVector::Dist(It->GetActorLocation(), C.GetActorLocation());
+				if (D < BestD) { BestD = D; Best = *It; }
+			}
+			Log(FString::Printf(TEXT("step=take_nearest_loot seen=%d nearest=%.0f item=%s"), Seen, BestD,
+				Best ? *Best->GetItemId().ToString() : TEXT("none")));
+			if (Best)
+			{
+				// Teleporting next to it is a test shortcut (no pathing through houses); the server still checks reach.
+				C.DebugServerTeleport(Best->GetActorLocation() + FVector(0.f, 0.f, 100.f));
+			}
+		} });
+		Steps.Add({ 5.f, TEXT("take"), [this, Log](AAftermathCharacter& C)
+		{
+			AAftermathPickup* Best = nullptr;
+			float BestD = TNumericLimits<float>::Max();
+			for (TActorIterator<AAftermathPickup> It(GetWorld()); It; ++It)
+			{
+				const float D = FVector::Dist(It->GetActorLocation(), C.GetActorLocation());
+				if (D < BestD) { BestD = D; Best = *It; }
+			}
+			Log(FString::Printf(TEXT("step=take dist=%.0f item=%s"), BestD, Best ? *Best->GetItemId().ToString() : TEXT("none")));
+			if (Best)
+			{
+				C.GetInventory()->ServerTakeFromGround(Best, EAftermathTakeMode::Auto, EAftermathWearSlot::None, 0, 0, false);
+			}
+		} });
+		Steps.Add({ 8.f, TEXT("done"), [](AAftermathCharacter&) {} });
+		}
 		else if (ScriptName == TEXT("observer"))
 	{
 		// Spawned at StartC (start of the vault course, 60cm wall 3.85m ahead).
@@ -444,6 +507,9 @@ void UAftermathTestScript::LogObservations(AAftermathCharacter& Self)
 	FString Msg = FString::Printf(TEXT("t=%.1f self_stance=%s self_z=%.1f items=%d"),
 		Elapsed, AftermathMath::StanceToString(Self.GetStance()), Self.GetActorLocation().Z,
 		Self.GetInventory() ? Self.GetInventory()->CountItems() : 0);
+	// Appended at the end so existing log regexes keep matching.
+	const FString Pose = FString::Printf(TEXT(" self_x=%.0f self_y=%.0f self_yaw=%.0f"),
+		Self.GetActorLocation().X, Self.GetActorLocation().Y, Self.GetActorRotation().Yaw);
 
 	// Own vitals and gear as replicated to this (owning) client.
 	if (const UAftermathSurvivalComponent* S = Self.GetSurvival())
@@ -456,6 +522,11 @@ void UAftermathTestScript::LogObservations(AAftermathCharacter& Self)
 	{
 		Msg += FString::Printf(TEXT(" rounds=%d hitmarker_age=%.1f dmg_indicator_age=%.1f tracers=%d"),
 			Combat->GetHeldRounds(), Combat->GetHitMarkerAge(), Combat->GetDamageIndicatorAge(), Combat->GetTracers().Num());
+	}
+	// Replicated clock and weather (stage 5).
+	if (const AAftermathGameState* GS = GetWorld()->GetGameState<AAftermathGameState>())
+	{
+		Msg += FString::Printf(TEXT(" hour=%.2f daylight=%.2f rain=%.2f"), GS->GetHour(), GS->GetDaylight(), GS->GetRain());
 	}
 	// Nearest infected as replicated to this client (position, replicated state, dead flag).
 	{
@@ -524,6 +595,7 @@ void UAftermathTestScript::LogObservations(AAftermathCharacter& Self)
 		++Pickups;
 	}
 	Msg += FString::Printf(TEXT(" pickups=%d"), Pickups);
+	Msg += Pose;
 
 	UE_LOG(LogAftermath, Display, TEXT("[AftermathTest] role=%s %s"), *ScriptName, *Msg);
 }
@@ -547,7 +619,13 @@ void UAftermathTestScript::TickComponent(float DeltaTime, ELevelTick TickType, F
 	if (!bStarted)
 	{
 		bStarted = true;
-		UE_LOG(LogAftermath, Display, TEXT("[AftermathTest] role=%s started steps=%d"), *ScriptName, Steps.Num());
+		// A windowed test client that gets focus would otherwise turn with the real mouse (IA_Look),
+		// sending the scripted walks the wrong way. Scripts aim with SetControlRotation, which this doesn't block.
+		if (APlayerController* PC = Cast<APlayerController>(Self->GetController()))
+		{
+			PC->SetIgnoreLookInput(true);
+		}
+		UE_LOG(LogAftermath, Display, TEXT("[AftermathTest] role=%s started steps=%d yaw=%.0f"), *ScriptName, Steps.Num(), Self->GetActorRotation().Yaw);
 	}
 
 	Elapsed += DeltaTime;
